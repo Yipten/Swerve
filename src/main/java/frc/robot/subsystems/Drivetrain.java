@@ -12,11 +12,11 @@ import edu.wpi.first.wpilibj.PIDSource;
 import edu.wpi.first.wpilibj.PIDSourceType;
 
 public class Drivetrain {
-	private static final SwerveWheel wheel1;
-	private static final SwerveWheel wheel2;
-	private static final SwerveWheel wheel3;
-	private static final SwerveWheel wheel4;
-	private static final ArrayList<SwerveWheel> wheels;
+	private static final SwerveModule module1;
+	private static final SwerveModule module2;
+	private static final SwerveModule module3;
+	private static final SwerveModule module4;
+	private static final ArrayList<SwerveModule> swerveModules;
 
 	private static double length;
 	private static double width;
@@ -25,16 +25,15 @@ public class Drivetrain {
 	private static double rotation;
 
 	static {
-		// TODO get real numbers before testing (these are fake numbers)
-		wheel1 = new SwerveWheel(1, 5, () -> b(), () -> c());
-		wheel2 = new SwerveWheel(2, 6, () -> b(), () -> d());
-		wheel3 = new SwerveWheel(3, 7, () -> a(), () -> d());
-		wheel4 = new SwerveWheel(4, 8, () -> a(), () -> c());
-		wheels = new ArrayList<SwerveWheel>();
-		wheels.add(wheel1);
-		wheels.add(wheel2);
-		wheels.add(wheel3);
-		wheels.add(wheel4);
+		module1 = new SwerveModule(1, 5, () -> b(), () -> c());	// TODO get real numbers before testing (these are fake numbers)
+		module2 = new SwerveModule(2, 6, () -> b(), () -> d());
+		module3 = new SwerveModule(3, 7, () -> a(), () -> d());
+		module4 = new SwerveModule(4, 8, () -> a(), () -> c());
+		swerveModules = new ArrayList<SwerveModule>();
+		swerveModules.add(module1);
+		swerveModules.add(module2);
+		swerveModules.add(module3);
+		swerveModules.add(module4);
 	}
 
 	// #region A, B, C, & D
@@ -56,10 +55,10 @@ public class Drivetrain {
 	// #endregion
 
 	/**
-	 * sets the dimensions of the wheelbase
+	 * Sets dimensions of the wheelbase.
 	 * 
-	 * @param l length (in.)
-	 * @param w width (in.)
+	 * @param l Length in inches.
+	 * @param w Width in inches.
 	 */
 	public static void setDimensions(double l, double w) {
 		length = l;
@@ -67,32 +66,34 @@ public class Drivetrain {
 	}
 
 	/**
-	 * drives the robot
+	 * Drives the robot.
 	 * 
-	 * @param x value between -1.0 and 1.0 representing side-to-side movement
-	 * @param y value between -1.0 and 1.0 representing forward and backward
-	 *          movement
-	 * @param r radians/second, positive going clockwise
+	 * @param x Value between -1.0 and 1.0 representing side-to-side movement.
+	 * @param y Value between -1.0 and 1.0 representing forward and backward movement.
+	 * @param r Radians/second, positive going clockwise.
 	 */
 	public static void drive(double x, double y, double r) {
 		xSpeed = x;
 		ySpeed = y;
 		rotation = r;
 		double largest = 0;
-		for (SwerveWheel wheel : wheels) {
+		for (SwerveModule wheel : swerveModules) {
 			wheel.calc();
 			largest = Math.max(wheel.getSpeed(), largest);
 		}
 		// if any speed values are greater than 1, divide all by the largest
 		if (largest > 1)
-			for (SwerveWheel wheel : wheels)
+			for (SwerveModule wheel : swerveModules)
 				wheel.divSpeed(largest);
 		// drive each wheel
-		for (SwerveWheel wheel : wheels)
+		for (SwerveModule wheel : swerveModules)
 			wheel.drive();
 	}
 
-	private static class SwerveWheel {
+	/**
+	 * Nested class for instantiating the four swerve wheels.
+	 */
+	private static class SwerveModule {
 		// pid stuff for pivoting
 		public final PIDController pivotPid;
 		public final PIDSource pidSource;
@@ -104,20 +105,20 @@ public class Drivetrain {
 		private final Supplier<Double> calcSpeed;
 		private final Supplier<Double> calcAngle;
 
-		// values used to drive the SwerveWheel
+		// values used to drive the module
 		private double speed;
 		private double angle;
 		private double pivotSpeed;
 
 		/**
-		 * initializes an instance of the SwerveWheel class
+		 * Initializes an instance of the SwerveModule class.
 		 * 
-		 * @param w     wheel deviceNumber
-		 * @param p     pivot deviceNumber
-		 * @param func1 function one for calculating speed and angle
-		 * @param func2 fuction two for calculating speed and angle
+		 * @param w     Wheel device number.
+		 * @param p     Pivot device number.
+		 * @param func1 Function one for calculating speed and angle.
+		 * @param func2 Fuction two for calculating speed and angle.
 		 */
-		public SwerveWheel(int w, int p, Supplier<Double> func1, Supplier<Double> func2) {
+		public SwerveModule(int w, int p, Supplier<Double> func1, Supplier<Double> func2) {
 			pidSource = new PIDSource() {
 				private PIDSourceType pidSourceType;
 
@@ -136,6 +137,7 @@ public class Drivetrain {
 					return pivot.getEncoder().getPosition();	// TODO: get angle in degrees or radians from encoder value
 				}
 			};
+			pidSource.setPIDSourceType(PIDSourceType.kDisplacement);
 
 			pidOutput = new PIDOutput() {
 				@Override
@@ -144,9 +146,7 @@ public class Drivetrain {
 				}
 			};
 
-			pidSource.setPIDSourceType(PIDSourceType.kDisplacement);
-
-			pivotPid = new PIDController(0.0001, 0, 0, pidSource, pidOutput);
+			pivotPid = new PIDController(0.0001, 0, 0, pidSource, pidOutput);	// TODO: tune these values
 			pivotPid.setInputRange(-180, 180);
 			pivotPid.setOutputRange(-1, 1);
 			pivotPid.setContinuous(true);
@@ -160,7 +160,7 @@ public class Drivetrain {
 		}
 
 		/**
-		 * updates speed and angle based on assigned functions
+		 * Updates speed and angle based on assigned functions.
 		 */
 		public void calc() {
 			speed = calcSpeed.get();
@@ -168,23 +168,23 @@ public class Drivetrain {
 		}
 
 		/**
-		 * @return current speed of the wheel
+		 * @return Current speed of the wheel.
 		 */
 		public double getSpeed() {
 			return speed;
 		}
 
 		/**
-		 * divides speed by given argument
+		 * Divides speed by given argument.
 		 * 
-		 * @param largest largest speed of all wheels
+		 * @param largest Largest speed of all wheels.
 		 */
 		public void divSpeed(double largest) {
 			speed /= largest;
 		}
 
 		/**
-		 * drives the wheel
+		 * Drives the module.
 		 */
 		public void drive() {
 			// sets new speed
