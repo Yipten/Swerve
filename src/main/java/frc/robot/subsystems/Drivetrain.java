@@ -3,13 +3,11 @@ package frc.robot.subsystems;
 import java.util.ArrayList;
 import java.util.function.Supplier;
 
+import com.revrobotics.CANPIDController;
 import com.revrobotics.CANSparkMax;
+import com.revrobotics.ControlType;
+import com.revrobotics.CANPIDController.AccelStrategy;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
-
-import edu.wpi.first.wpilibj.PIDController;
-import edu.wpi.first.wpilibj.PIDOutput;
-import edu.wpi.first.wpilibj.PIDSource;
-import edu.wpi.first.wpilibj.PIDSourceType;
 
 public class Drivetrain {
 	private static final SwerveModule module1;
@@ -94,13 +92,16 @@ public class Drivetrain {
 	 * Nested class for instantiating the four swerve wheels.
 	 */
 	private static class SwerveModule {
-		// pid stuff for pivoting
-		public final PIDController pivotPid;
-		public final PIDSource pidSource;
-		public final PIDOutput pidOutput;
+		// // pid stuff for pivoting
+		// public final PIDController anglePid;
+		// public final PIDSource anglePidSource;
+		// public final PIDOutput anglePidOutput;
 		// motors
 		private final CANSparkMax wheel;
 		private final CANSparkMax pivot;
+		// pid controllers
+		private final CANPIDController wheelPidController;
+		private final CANPIDController pivotPidController;
 		// calculation functions
 		private final Supplier<Double> calcSpeed;
 		private final Supplier<Double> calcAngle;
@@ -108,7 +109,6 @@ public class Drivetrain {
 		// values used to drive the module
 		private double speed;
 		private double angle;
-		private double pivotSpeed;
 
 		/**
 		 * Initializes an instance of the SwerveModule class.
@@ -119,41 +119,59 @@ public class Drivetrain {
 		 * @param func2 Fuction two for calculating speed and angle.
 		 */
 		public SwerveModule(int w, int p, Supplier<Double> func1, Supplier<Double> func2) {
-			pidSource = new PIDSource() {
-				private PIDSourceType pidSourceType;
+			// anglePidSource = new PIDSource() {
+			// 	private PIDSourceType pidSourceType;
 
-				@Override
-				public void setPIDSourceType(PIDSourceType type) {
-					pidSourceType = type;
-				}
+			// 	@Override
+			// 	public void setPIDSourceType(PIDSourceType type) {
+			// 		pidSourceType = type;
+			// 	}
 
-				@Override
-				public PIDSourceType getPIDSourceType() {
-					return pidSourceType;
-				}
+			// 	@Override
+			// 	public PIDSourceType getPIDSourceType() {
+			// 		return pidSourceType;
+			// 	}
 
-				@Override
-				public double pidGet() {
-					return pivot.getEncoder().getPosition();	// TODO: get angle in degrees or radians from encoder value
-				}
-			};
-			pidSource.setPIDSourceType(PIDSourceType.kDisplacement);
+			// 	@Override
+			// 	public double pidGet() {
+			// 		return pivot.getEncoder().getPosition();	// TODO: get angle in degrees or radians from encoder value
+			// 	}
+			// };
+			// anglePidSource.setPIDSourceType(PIDSourceType.kDisplacement);
 
-			pidOutput = new PIDOutput() {
-				@Override
-				public void pidWrite(double output) {
-					pivotSpeed = output;
-				}
-			};
+			// anglePidOutput = new PIDOutput() {
+			// 	@Override
+			// 	public void pidWrite(double output) {
+			// 		pivotSpeed = output;
+			// 	}
+			// };
 
-			pivotPid = new PIDController(0.0001, 0, 0, pidSource, pidOutput);	// TODO: tune these values
-			pivotPid.setInputRange(-180, 180);
-			pivotPid.setOutputRange(-1, 1);
-			pivotPid.setContinuous(true);
-			pivotPid.setSetpoint(0);
+			// anglePid = new PIDController(0.0, 0, 0, anglePidSource, anglePidOutput);	// TODO: tune these values
+			// anglePid.setInputRange(-180, 180);
+			// anglePid.setOutputRange(-1, 1);
+			// anglePid.setContinuous(true);
+			// anglePid.setSetpoint(0);
 
 			wheel = new CANSparkMax(w, MotorType.kBrushless);
 			pivot = new CANSparkMax(p, MotorType.kBrushless);
+
+			wheelPidController = wheel.getPIDController();	// TODO: tune these values
+			wheelPidController.setP(0.0);
+			wheelPidController.setI(0.0);
+			wheelPidController.setD(0.0);
+			wheelPidController.setFF(0.0);
+			wheelPidController.setSmartMotionMaxVelocity(1000, 0);
+			wheelPidController.setSmartMotionMaxAccel(1000, 0);
+			wheelPidController.setSmartMotionAccelStrategy(AccelStrategy.kTrapezoidal, 0);
+			
+			pivotPidController = pivot.getPIDController();	// TODO: tune these values
+			pivotPidController.setP(0.0);
+			pivotPidController.setI(0.0);
+			pivotPidController.setD(0.0);
+			pivotPidController.setFF(0.0);
+			pivotPidController.setSmartMotionMaxVelocity(1000, 0);
+			pivotPidController.setSmartMotionMaxAccel(1000, 0);
+			pivotPidController.setSmartMotionAccelStrategy(AccelStrategy.kTrapezoidal, 0);
 
 			calcSpeed = () -> Math.sqrt(Math.pow(func1.get(), 2) + Math.pow(func2.get(), 2));
 			calcAngle = () -> Math.toDegrees(Math.atan2(func1.get(), func2.get()));
@@ -188,10 +206,9 @@ public class Drivetrain {
 		 */
 		public void drive() {
 			// sets new speed
-			wheel.set(speed);
+			wheelPidController.setReference(speed, ControlType.kSmartVelocity);
 			// sets new angle
-			pivotPid.setSetpoint(angle);
-			pivot.set(pivotSpeed);
+			pivotPidController.setReference(angle, ControlType.kSmartMotion);
 		}
 	}
 }
